@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: quobyte-client
+  name: bb
   labels:
-    app: quobyte-client
+    app: bb
 spec:
   replicas: 10
   selector:
@@ -37,4 +37,4 @@ spec:
   resources:
     requests:
       storage: 200Gi
-  storageClassName: quobyte-csi
+  storageClassName: quobyte-rf3
