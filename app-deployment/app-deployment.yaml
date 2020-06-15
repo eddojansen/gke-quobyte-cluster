@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bb
+  name: bb-deployment
   labels:
-    app: bb
+    app: bb-deployment
 spec:
-  replicas: 10
+  replicas: 100
   selector:
     matchLabels:
       app: busybox

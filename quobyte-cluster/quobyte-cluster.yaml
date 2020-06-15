@@ -1,29 +1,11 @@
-apiVersion: v1
-kind: Namespace
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
 metadata:
-  name: quobyte
+  name: faster
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
 ---
-
-apiVersion: v1
-kind: Secret
-metadata:
-  name: quobyte-admin-secret
-  namespace: default
-type: "kubernetes.io/quobyte"
-data:
-  # echo -n "value" | base64 gives the base64 encoded data for 'value'
-
-  # Base64 encoded Quobyte API user name. Key must be 'user'.
-  # Update data (YWRtaW4=) with base64 encoded API user name for your Quobyte deployment.
-  user: YWRtaW4=
-  # Base64 encoded Quobyte API password. Key must be 'password'.
-  # Update data (cXVvYnl0ZQ==) with base64 encoded API password for your Quobyte deployment.
-  password: cXVvYnl0ZQ==
-  # The user and password information is used to commuicate with Quobyte deployment thorugh API.
-  # Your API credentials must have volume create and delete capabilities to use dynamic provisioning.
-
----
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -39,20 +21,7 @@ spec:
   clusterIP: None
   selector:
     app: quobyte
-
 ---
-
-# ssd-storageclass.yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: faster
-provisioner: kubernetes.io/gce-pd
-parameters:
-  type: pd-ssd
-
----
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -71,7 +40,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: quobyte
-        image: gcr.io/eda-eval/quobyte-kubernetes-server:2.23.4-gke
+        image: gcr.io/eda-eval/quobyte-kubernetes-server:2-gke
         imagePullPolicy: Always
         ports:
         - containerPort: 7861
@@ -138,9 +107,7 @@ spec:
       resources:
         requests:
           storage: 840Gi
-
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -154,13 +121,11 @@ spec:
   - protocol: TCP
     port: 8080
     targetPort: 8080
-
 ---
-
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: quobyte-client
+  name: quobyte-client-ds
   namespace: default
 spec:
   selector:
@@ -177,7 +142,7 @@ spec:
         version: "2"
     spec:
       containers:
-      - name: quobyte-client
+      - name: quobyte-client-csi
         image: quay.io/quobyte/quobyte-client:2
         imagePullPolicy: Always
         env:
@@ -248,9 +213,7 @@ spec:
       - name: minidumps-dir
         hostPath:
           path: /var/lib/quobyte/.minidumps
-
 ---
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -258,9 +221,7 @@ metadata:
   namespace: kube-system
 data:
   quobyte.apiURL: "http://quobyte-0.quobyte.default.svc.cluster.local:7860"
-
 ---
-
 apiVersion: storage.k8s.io/v1beta1
 kind: CSIDriver
 metadata:
@@ -268,9 +229,7 @@ metadata:
 spec:
   attachRequired: false
   podInfoOnMount: false
-
 ---  
-
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
@@ -357,7 +316,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: QUOBYTE_MOUNT_PATH
-              value:  /mnt/quobyte/mounts
+              value:  /home/quobyte/mounts
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -380,9 +339,7 @@ spec:
           hostPath: 
             path: /tmp
             type: Directory
-
 ---
-
 kind: ServiceAccount
 apiVersion: v1
 metadata:
@@ -417,9 +374,7 @@ rules:
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
     verbs: ["get", "list"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -432,9 +387,7 @@ roleRef:
   kind: ClusterRole
   name: quobyte-csi-provisioner-role
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 # Attacher must be able to work with PVs, nodes and VolumeAttachments
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -453,9 +406,7 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["volumeattachments"]
     verbs: ["get", "list", "watch", "update"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -468,9 +419,7 @@ roleRef:
   kind: ClusterRole
   name: quobyte-csi-attacher-role
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -503,9 +452,7 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["create", "list", "watch", "delete"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -518,9 +465,7 @@ roleRef:
   kind: ClusterRole
   name: quobyte-csi-snapshotter-role
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -529,9 +474,7 @@ rules:
   - apiGroups: ["csi.storage.k8s.io"]
     resources: ["csidrivers"]
     verbs: ["create", "delete"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -544,9 +487,7 @@ roleRef:
   kind: ClusterRole
   name: quobyte-csi-cluster-driver-registrar-role
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -567,9 +508,7 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["list", "watch", "create", "update", "patch"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -582,9 +521,7 @@ roleRef:
   kind: ClusterRole
   name: external-resizer-runner
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -650,7 +587,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
             - name: QUOBYTE_MOUNT_PATH
-              value:  /mnt/quobyte/mounts
+              value:  /home/quobyte/mounts
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -665,7 +602,7 @@ spec:
               mountPath: /var/lib/kubelet/pods
               mountPropagation: "Bidirectional"
             - name: quobyte-mounts
-              mountPath: /mnt/quobyte
+              mountPath: /home/quobyte
               mountPropagation: "Bidirectional"
             - name: plugin-dir
               mountPath: /csi
@@ -679,7 +616,7 @@ spec:
         - name: quobyte-mounts
           hostPath:
             # Quobyte client also should use the same mount point
-            path: /mnt/quobyte
+            path: /home/quobyte
             type: DirectoryOrCreate
         - name: plugin-dir
           hostPath:
@@ -694,17 +631,13 @@ spec:
           hostPath: 
             path: /tmp
             type: Directory
-
 ---
-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: quobyte-csi-node-sa
   namespace: kube-system
-
 ---
-
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -714,9 +647,7 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
-
 ---
-
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -729,13 +660,11 @@ roleRef:
   kind: ClusterRole
   name: quobyte-csi-driver-registrar-role
   apiGroup: rbac.authorization.k8s.io
-
 ---
-
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: quobyte-csi
+  name: quobyte-rf3
 # provisioner must be csi.quobyte.com
 provisioner: csi.quobyte.com
 # Should be set to 'true' to expand volume size.
@@ -765,4 +694,23 @@ parameters:
   group: root
   accessMode: "770"
 reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: quobyte-admin-secret
+  namespace: default
+type: "kubernetes.io/quobyte"
+data:
+  # echo -n "value" | base64 gives the base64 encoded data for 'value'
+
+  # Base64 encoded Quobyte API user name. Key must be 'user'.
+  # Update data (YWRtaW4=) with base64 encoded API user name for your Quobyte deployment.
+  user: YWRtaW4=
+  # Base64 encoded Quobyte API password. Key must be 'password'.
+  # Update data (cXVvYnl0ZQ==) with base64 encoded API password for your Quobyte deployment.
+  password: cXVvYnl0ZQ==
+  # The user and password information is used to commuicate with Quobyte deployment thorugh API.
+  # Your API credentials must have volume create and delete capabilities to use dynamic provisioning.
+
 
