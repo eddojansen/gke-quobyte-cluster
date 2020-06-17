@@ -2,7 +2,8 @@
 # Set S3 Endpoint
 _S3=s3.quobyte.local
 
-NODENUM=$(echo "$(hostname)" | tr -dc "0-9")
+MYNAME=$(dig +short ptr -x $(hostname -i) | sed 's/.$//')
+NODENUM=$(echo "$MYNAME" | tr -dc "0-9")
 
 function replaceOrAddParam () {
     local config_file=$1
@@ -28,7 +29,7 @@ mkdir -p /var/lib/quobyte/devices/metadata
 mkdir -p /var/lib/quobyte/devices/data0
 mkdir -p /var/lib/quobyte/devices/data1
 
-if [ "$(hostname)" == "quobyte-0" ];then
+if [ "$MYNAME" == "quobyte-0.quobyte.default.svc.cluster.local" ];then
     if [ -e /var/lib/quobyte/devices/registry/QUOBYTE_DEV_SETUP ];then 
         echo "registry exists"
     else
@@ -65,6 +66,12 @@ fi
 QUOBYTE_WEBCONSOLE_PORT=8080
 
 echo "registry=quobyte-0.quobyte.default.svc.cluster.local,quobyte-1.quobyte.default.svc.cluster.local,quobyte-2.quobyte.default.svc.cluster.local,quobyte-3.quobyte.default.svc.cluster.local" > /etc/quobyte/host.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/data.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/metadata.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/api.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/registry.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/s3.cfg
+echo "hostname_override=$MYNAME" >> /etc/quobyte/webconsole.cfg
 
 if [ -n "$QUOBYTE_RPC_PORT" ]; then echo rpc.port=$QUOBYTE_RPC_PORT > /etc/quobyte/$QUOBYTE_SERVICE.cfg; fi
 if [ -n "$QUOBYTE_HTTP_PORT" ]; then echo http.port=$QUOBYTE_HTTP_PORT >> /etc/quobyte/$QUOBYTE_SERVICE.cfg; fi
